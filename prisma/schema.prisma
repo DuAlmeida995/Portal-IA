@@ -1,0 +1,138 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?   // avatar url opcional
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // relações
+  results       Result[]  
+  projects      Project[]
+  credits       Credit[]
+  // NextAuth fields opcionais (se usar adapter Prisma do NextAuth)
+  accounts      Account[] 
+  sessions      Session[]
+  files File[]
+
+  @@map("users")
+}
+
+model Result {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  projectId    String?   
+  project      Project?  @relation(fields: [projectId], references: [id])
+  title        String?   // título opcional dado pelo usuário
+  prompt       String
+  type         String    // 'text' | 'image' | 'other'
+  content      String?   // texto longo ou URL da imagem
+  metadata     Json?     // resposta raw da IA, tokens, model, tamanho etc.
+  isPublic     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  tags         Tag[]     @relation("ResultTags")
+  files        File[]    // referência a arquivos/urls relacionados
+
+  @@index([userId])
+  @@map("results")
+}
+
+model Project {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  name         String
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  results      Result[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Tag {
+  id       String    @id @default(cuid())
+  name     String
+  results  Result[]  @relation("ResultTags")
+
+  @@unique([name])
+  @@map("tags")
+}
+
+model File {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  resultId  String? 
+  result    Result?  @relation(fields: [resultId], references: [id])
+  url       String
+  filename  String?
+  size      Int?
+  mimeType  String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("files")
+}
+
+model Credit {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Int      @default(0)   // créditos disponíveis
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("credits")
+}
+
+/*
+ Optional NextAuth models — se usar NextAuth com Prisma adapter,
+já existem templates no docs do NextAuth. Incluí abaixo como referência.
+*/
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? 
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@map("sessions")
+}
